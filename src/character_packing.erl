@@ -57,19 +57,17 @@ encoding([H | T], Res) ->
 encoding([], Res) ->
   Res.
 
-construct_octets({Type, List}) ->
-  Len = length(List),
-  Padd_Index = Len rem 8,
-  construct_octets(List, Type, Padd_Index).
+construct_octets({Type, Num_Of_Spare, List}) ->
+  construct_octets(List, Type, Num_Of_Spare).
 
-construct_octets([H | T], Type, Padd_Index) ->
+construct_octets([H | T], Type, Num_Of_Spare) ->
   Spare = if
-            Type == ussd, Padd_Index == 7 ->
+            Type == ussd, Num_Of_Spare == 7 ->
               ?USSD_7_SPARE;
             true ->
               0
           end,
-  construct_octets(T, <<Spare:Padd_Index, H:7>>).
+  construct_octets(T, <<Spare:Num_Of_Spare, H:7>>).
 
 construct_octets([H | T], Res) ->
   construct_octets(T, <<Res/bitstring, H:7>>);
@@ -77,7 +75,6 @@ construct_octets([], Res) ->
   binary:encode_unsigned(binary:decode_unsigned(Res, little)).
 
 start({Type, Str}) ->
-  io:format("String (~p): ~p~n", [length(Str), Str]),
   Is_Valid = lists:member(Type, ?VALID_PACKING_METHODS),
   case Is_Valid of
     true ->
@@ -86,8 +83,8 @@ start({Type, Str}) ->
         length(Encoded_Str) == 0 ->
           {0, undefined};
         true ->
-          Pack = construct_octets({Type, Encoded_Str}),
           Num_Of_Spare = length(Str) rem 8,
+          Pack = construct_octets({Type, Num_Of_Spare, Encoded_Str}),
           {Num_Of_Spare, Pack}
       end;
     false ->
